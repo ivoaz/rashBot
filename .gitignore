@@ -99,3 +99,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+#
+atba2.py
+atba.py
+Brain.py
+nppBackup/
