@@ -21,15 +21,15 @@ def ChaseBallBias(s):
     s.vd,s.va,s.vi = spherical(s.xv,s.yv,s.zv)
     s.vd2 = d2([s.xv, s.yv])
     
-    s.dT = Range( d3(s.pL+s.pV/9, s.bL+s.bV/9)/2700 + (.5-abs(abs(s.ba)-.5))/4, 5)
+    s.dT = Range( d3(s.pL+s.pV/60, s.bL+s.bV/60)/2500, 5)
 
     s.dT = d3( step(s.bL,s.bV,s.baV,s.dT)[0], 
-               step(s.pL,s.pV,s.paV,s.dT)[0] )/(2500-(not s.poG)*500)
+               step(s.pL,s.pV,s.paV,s.dT/2)[0] )/2450
 
     s.tL = predict_sim(s.bL,s.bV,s.baV,s.dT)[-1][0]
 
     if s.aerialing :
-        s.tL = s.tL - approx_step(z3,s.pV,s.dT)[0] - s.pV*s.dT/2
+        s.tL = s.tL - approx_step(z3,s.pV,s.dT*1.5)[0]
 
     s.tx,s.ty,s.tz = local(s.tL,s.pL,s.pR)
 
@@ -39,9 +39,10 @@ def ChaseBallBias(s):
     s.tx,s.ty,s.tz = local(s.tL,s.pL,s.pR)
     s.td,s.ta,s.ti = spherical(s.tx,s.ty,s.tz)
 
-    aim(s)
+    aim(s, 105, 1)
 
-    s.brakes = (abs(s.z)>80 or abs(s.a)>.1)
+    s.brakes = (abs(s.z)>90 or abs(s.a)>.1)
+
 
 def KickoffChase(s):
 
@@ -53,20 +54,24 @@ def KickoffChase(s):
 
     s.tL = s.bL
 
+    if abs(s.pL[0])>999 : 
+        s.tL[1] -= Range(abs(s.pL[0]),999)/5*s.color
+
     s.tx,s.ty,s.tz = local(s.tL,s.pL,s.pR)
     s.td,s.ta,s.ti = spherical(s.tx,s.ty,s.tz)
 
-    aim(s)
+    aim(s, 70)
 
     s.brakes = False
 
-def aim(s):
+
+def aim(s, radius, turning_circle=False):
 
     s.shoot = True
 
     togL = s.ogoal - s.tL
     tgL = s.goal - s.tL
-    tpL = s.pL - s.tL
+    tpL = s.pL + s.pV*s.dT/2 - s.tL
 
     s.gtL = -tgL
     s.gpL = s.pL - s.goal
@@ -74,21 +79,31 @@ def aim(s):
     s.gtd,s.gta,s.gti = spherical(*s.gtL,0)
     s.gpd,s.gpa,s.gpi = spherical(*s.gpL,0)
 
-    tpd,tpa,tpi = spherical(*tpL,0)
+    s.tpd,s.tpa,s.tpi = spherical(*tpL,0)
+    s.tgd,s.tga,s.tgi = spherical(*tgL,0)
+    s.togd,s.toga,s.togi = spherical(*togL,0)
 
-    if s.ogtd>s.ogpd  :
+    s.tga = Range180(s.tga + pi, pi)
+    s.tgi = Range180(pi - s.tgi, pi)
 
-        gtd = s.gtd + 105
+    if turning_circle:
+        radius += Range( Range(ang_dif(s.tga,s.tpa,pi)/pi, .7)*1.3
+                    * pos(abs(s.ty)/2 - 599) * s.poG * (abs(s.tz)<150), 599)
 
-        tL = cartesian(gtd,s.gta,s.gti) + s.goal
+    if s.ogtd>s.ogpd :
+
+        tga = mid_ang(s.tpa,s.tga)
+        tgi = mid_ang(s.tpi,s.tgi)
+
+        s.tL = cartesian(radius,tga,tgi) + s.tL
 
     else :
 
-        _,toga,togi = spherical(*togL,0)
+        toga = mid_ang(s.tpa,s.toga)
+        togi = mid_ang(s.tpi,s.togi)
 
-        tL = cartesian(105, mid_ang(tpa,toga),togi) + s.tL
+        s.tL = cartesian(radius,toga,togi) + s.tL
 
-    s.tL = tL
     s.x,s.y,s.z = local(s.tL,s.pL,s.pR)
     s.d,s.a,s.i = spherical(s.x,s.y,s.z)
 

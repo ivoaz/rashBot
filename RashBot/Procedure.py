@@ -32,7 +32,7 @@ def pre_process(s, game):
 
     if not hasattr(s, 'counter'):
 
-        s.counter = 0
+        s.counter = -1
 
         s.throttle = s.steer = s.pitch = s.yaw = s.roll = s.jump = s.boost = 0
         s.powerslide = s.ljump = 0
@@ -80,12 +80,6 @@ def pre_process(s, game):
     s.oL = a3(s.opp.Location); s.oV = a3(s.opp.Velocity)
     s.oR = a3(s.opp.Rotation)
 
-def feedback(s):
-
-    s.lpoG = s.poG
-    s.ltime = s.time
-    s.lljump = s.ljump
-    s.ljump = s.jump
 
 def gather_info(s):
 
@@ -120,7 +114,7 @@ def gather_info(s):
     s.ofL = step(s.pL,s.pV,z3,s.odT)[0]
 
     s.ooglinex = line_intersect(([0,-gy*s.color], [1,-gy*s.color]), 
-                ([s.ofL[0],s.ofL[1]], [s.otL[0],s.otL[1]]))[0]
+                ([s.oL[0],s.oL[1]], [s.otL[0],s.otL[1]]))[0]
 
     s.ooglinez = line_intersect(([0,-gy*s.color], [1,-gy*s.color]), 
                 ([s.ofL[2],s.ofL[1]], [s.otL[2],s.otL[1]]))[0]
@@ -130,10 +124,10 @@ def gather_info(s):
 
     # other
 
-    s.goal = a3([-Range((s.tL[0] +s.glinex)/2,500), gy*s.color, 250])
+    s.goal = a3([-Range(.6*s.tL[0]+.4*s.glinex,500), gy*s.color, 0])
 
-    s.ogoal = a3([Range(s.oglinex,900), -gy*s.color,
-                    Range(s.oglinez*.25,650)])
+    s.ogoal = a3([Range(s.ooglinex,900), -gy*s.color,
+                    Range(s.ooglinez*.25,650)])
 
     s.gaimdx = abs(s.goal[0] - s.glinex)
     s.gaimdz = abs(s.goal[2] - s.glinez)
@@ -143,3 +137,11 @@ def gather_info(s):
     s.ogpd = d3(s.ogoal,s.pL)
 
     
+def feedback(s):
+
+    s.lpoG = s.poG
+    s.ltime = s.time
+    s.lljump = s.ljump
+    s.ljump = s.jump
+
+    s.counter += 1

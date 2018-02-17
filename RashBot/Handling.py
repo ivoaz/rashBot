@@ -1,16 +1,16 @@
-from Util import U, sign, Range, Range180, ang_dif, regress
+from Util import *
 
 
 def controls(s):
 
-    # s.throttle = regress((s.y-s.yv*.25*s.brakes)/900)
-    s.throttle = regress((s.y-s.yv*(s.dT+.2*s.brakes))/900)
+    s.throttle = regress((s.y-s.yv*.3*s.brakes)/900)
+    # s.throttle = regress((s.y-s.yv*(s.dT+.2*s.brakes))/900)
     s.steer = regress(s.a-s.av/40)
     s.pitch = regress(-s.i-s.iv/15)
     s.yaw = regress(s.a-s.av/12)
     s.roll = regress(-s.r+s.rv/22)*(abs(s.a)<.15)
 
-    s.boost = (abs(s.a)<0.1 and abs(s.i)<0.25 and s.throttle>0.5 and 
+    s.boost = (abs(s.a)<0.1 and abs(s.i)<0.25 and s.throttle>.5 and 
                s.pyv<2250 and s.pB>.1)
 
     s.powerslide = s.jump = 0
@@ -25,7 +25,8 @@ def controls(s):
     if s.d2>400 and abs(s.a+s.av/2.25)>0.45 :
         if abs(s.a)>0.98: s.steer = 1
         if s.d2>700 and  s.pyv<-90 :
-            if abs(s.a)<0.98 and abs(s.av)>0.5 : s.powerslide = 1
+            if (abs(s.a)<0.98 and abs(s.av)>0.5 and 
+            ang_dif(s.a,s.pva,1)<.25) : s.powerslide = 1
             s.steer = -sign(s.steer)
         elif s.d2>900 and abs(s.a)<0.95 and s.pyv<1000 :
             s.throttle = 1
@@ -37,13 +38,18 @@ def controls(s):
         s.steer = -sign(s.steer) 
 
     # general jump
-    if (s.z>140 and (
+    if (s.z>150 and (
         # flying jump
-        (s.z<Range((200*s.jcount+s.pB*5)*s.dT*2, 250*s.jcount+s.pB*9)
-         and s.d2pv<120 and ang_dif(s.a,s.pva,1)<.05 ) or
+        (s.z<(200*s.jcount+s.pB*3)*s.dT*3
+         and s.d2pv<120 ) or
         # directly below the ball
-        (s.z<450 +s.pB*4 and s.d2<110 and s.vd2<150 ))):
+        (s.z<450 +s.pB*4 and s.d2pv<100 and s.vd2<150 ))):
             s.jumper = 1
+
+    # Atba2 reckless jump
+    if (s.z>150 and s.z*1.8<s.d<s.z*3 and s.d2pv<99
+    	and s.z<550+s.pB*9  ):
+    		s.jumper = 1
 
     # jumping off walls
     if ((s.z>1350 or ((s.d<s.z*1.5 or s.vd<400) and s.pL[2]<500 
@@ -60,7 +66,7 @@ def controls(s):
         or (s.pyv>1120 and s.y-s.yv/4>3000 and s.pB<16)
         or (2000>s.pyv>970 and s.y-s.pyv/4>1700 and s.pB<6) )) :
             s.dodge = 1
-            s.xa = s.ta
+            s.xa = dodge_ang(s, s.tL)
 
     # jump for wavedash
     if (s.d>450 and 750<(s.y-s.yv/4) and ang_dif(s.a,s.pva,1)<.03
@@ -121,12 +127,21 @@ def controls(s):
 
 def dodge_hit(s):
     # dodge hit
-    if ( s.d2pv<90 and s.bd<900
-        and abs(s.z)<150 and ang_dif(s.ta,s.pva,1)<0.7) :
+    if ( s.d2pv<90 and abs(s.z)<150 and s.bd<999
+    	and ang_dif(s.ta,s.pva,1)<0.7) :
         # dodge to shoot
-        if (s.gtd<s.gpd and (abs(s.gaimdx)<300 or Range180(s.gta-s.gpa,1)<.03)
+        if (s.ogtd>s.ogpd and (abs(s.gaimdx)<300 or Range180(s.gta-s.gpa,1)<.03)
         # dodge to clear
-         or (s.gtd>s.gpd and abs(s.ooglinex)>1100) 
+         or (s.ogtd<s.ogpd and abs(s.oglinex)>1200) 
         # dodge for 
          or s.kickoff ):
-            s.dodge = 1; s.xa = s.ba
+            s.dodge = 1; 
+            s.xa = dodge_ang(s, s.bL)
+
+
+def dodge_ang(s, tL):
+    L = tL - s.pL
+    yaw = Range180(s.pR[1]-U/2,U)*pi/U
+    x,y = rotate2D(L[0],L[1],-yaw)
+    a = math.atan2(y,x)
+    return Range180(a/pi-.5,1)
