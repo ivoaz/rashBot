@@ -1,8 +1,8 @@
-from Util import pi, a3, a2, d3, sign, rotate2D, Range180
+from Util import pi, a3, a2, d2, d3, sign, rotate2D, Range180
 import math
 
 
-r, gc = 0.030455, -650  # air resistance, gravity constant
+r, gc = 0.0305, -650    # air resistance, gravity constant
 e2,e1,a = .6,.714,.4    # bounce & friction factor, spin inertia thingy
 R = 93                  # ball radius
 wx,wy,wz = 8200, 10280, 2050    # field dimensions
@@ -49,7 +49,6 @@ def CollisionFree(L) :
 
 
 def Collision_R(L):
-    R = 93
     x,y,z = L
     cx,cy,cz = wx/2-cR, wy/2-cR, wz-cR
     cx2,cz2 = wx/2-cR2, cR2
@@ -110,11 +109,6 @@ def step(L0,V0,aV0,dt):
     nV = V0 + A*dt
     nL = L0 + V0*dt + .5*A*dt**2
 
-    # limiting ball speed
-    total_v = d3(nV)
-    if total_v > 6000:
-        nV[0],nV[1],nV[2] = 6*nV[0]/total_v, 6*nV[1]/total_v, 6*nV[2]/total_v
-
     naV = aV0
 
     if not CollisionFree(nL):
@@ -124,30 +118,33 @@ def step(L0,V0,aV0,dt):
             # transorforming velocities to local space
             xv,yv,zv = local_space(V0,[0,0,0],Cl[1]) 
             xav,yav,zav = local_space(aV0,[0,0,0],Cl[1]) 
-            
-            # friction angle 
-            ang = abs(math.atan2(zv,math.sqrt(xv**2+yv**2)))/pi*180
-
-            # some more magic numbers
-            e = (e1-1)/(29)*ang +1
-
-            # limiting e to range [e1, 1]
-            if e<e1: e=e1
 
             # if rolling
-            if abs(zv)<10: e=.85
+            if abs(zv)<50: 
+                total_v2 = d2([xv,yv])
+                if total_v2 > 565 :
+                    # sliding friction
+                    sf = abs(1 - 1500*dt/total_v2)
+                    xv,yv = sf*a2([xv,yv])
 
-            # bounce calculations
-            xv,yv,zv = (xv+yav*R*a)*e, (yv-xav*R*a)*e, abs(zv)*e2
+            else: 
+                # bounce angle 
+                ang = abs(math.atan2(zv,math.sqrt(xv**2+yv**2)))/pi*180
+
+                # some more magic numbers
+                e = (e1-1)/(28)*ang +1
+
+                # limiting e to range [e1, 1]
+                if e<e1: e=e1
+
+                # bounce calculations
+                xv,yv = (xv+yav*R*a)*e, (yv-xav*R*a)*e
+
+            zv = abs(zv)*e2 + 5
             xav,yav = -yv/R, xv/R
 
-            # limiting ball speed
-            total_v = math.sqrt(xv**2+yv**2+zv**2) 
-            if total_v > 6000:
-                xv,yv,zv = 6*xv/total_v, 6*yv/total_v, 6*zv/total_v
-
             # limiting ball spin
-            total_av = math.sqrt(xav**2+yav**2+zav**2) 
+            total_av = math.sqrt(xav**2+yav**2+zav**2)
             if total_av > 6:
                 xav,yav,zav = 6*xav/total_av, 6*yav/total_av, 6*zav/total_av
 
@@ -155,9 +152,15 @@ def step(L0,V0,aV0,dt):
             nV = global_space([xv,yv,zv],[0,0,0],Cl[1])
             naV = global_space([xav,yav,zav],[0,0,0],Cl[1])
 
-            # redoing the step with the new velocities
-            nL = L0 + V0*dt*.5
-            nL = nL + nV*dt*.5
+            # redoing the step with the new velocity
+            nL = nL + nV*dt + (-r*nV)*dt**2
+            if L0[2]>R: nL += g*dt**2
+
+    # limiting ball speed
+    total_v = d3(nV)
+    if total_v > 6000:
+        nV[0],nV[1],nV[2] = 6*nV[0]/total_v, 6*nV[1]/total_v, 6*nV[2]/total_v
+
 
     return nL,nV,naV
 
@@ -171,9 +174,9 @@ def predict_sim(L0,V0,aV0,dt,tps=1/60):
         cL0,cV0,caV0 = step(cL0,cV0,caV0,tps)
         pt.append([cL0,cV0,caV0,(i+1)*tps])
 
-    if dt%tps>0:
-        cL0,cV0,caV0 = step(cL0,cV0,caV0,dt%tps)
-        pt.append([cL0,cV0,caV0,dt])
+    # if dt%tps>0:
+    cL0,cV0,caV0 = step(cL0,cV0,caV0,dt%tps)
+    pt.append([cL0,cV0,caV0,dt])
 
     return pt
     # returns (Location, Velocity, Angular Velocity, time from the start of the sim)
